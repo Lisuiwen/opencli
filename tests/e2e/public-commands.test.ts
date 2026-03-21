@@ -11,6 +11,11 @@ function isExpectedChineseSiteRestriction(code: number, stderr: string): boolean
   return /Error \[FETCH_ERROR\]: HTTP (403|429|451|503)\b/.test(stderr);
 }
 
+function isExpectedApplePodcastsRestriction(code: number, stderr: string): boolean {
+  if (code === 0) return false;
+  return /Error \[FETCH_ERROR\]: (Charts API HTTP \d+|Unable to reach Apple Podcasts charts)/.test(stderr);
+}
+
 // Keep old name as alias for existing tests
 const isExpectedXiaoyuzhouRestriction = isExpectedChineseSiteRestriction;
 
@@ -84,7 +89,11 @@ describe('public commands E2E', () => {
   }, 30_000);
 
   it('apple-podcasts top returns ranked podcasts', async () => {
-    const { stdout, code } = await runCli(['apple-podcasts', 'top', '--limit', '3', '--country', 'us', '-f', 'json']);
+    const { stdout, stderr, code } = await runCli(['apple-podcasts', 'top', '--limit', '3', '--country', 'us', '-f', 'json']);
+    if (isExpectedApplePodcastsRestriction(code, stderr)) {
+      console.warn(`apple-podcasts top skipped: ${stderr.trim()}`);
+      return;
+    }
     expect(code).toBe(0);
     const data = parseJsonOutput(stdout);
     expect(Array.isArray(data)).toBe(true);

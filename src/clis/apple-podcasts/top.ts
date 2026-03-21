@@ -2,7 +2,7 @@ import { cli, Strategy } from '../../registry.js';
 import { CliError } from '../../errors.js';
 
 // Apple Marketing Tools RSS API — public, no key required
-const CHARTS_URL = 'https://rss.applemarketingtools.com/api/v2';
+const CHARTS_URL = 'https://rss.marketingtools.apple.com/api/v2';
 
 cli({
   site: 'apple-podcasts',
@@ -19,7 +19,17 @@ cli({
     const limit = Math.max(1, Math.min(Number(args.limit), 100));
     const country = String(args.country || 'us').trim().toLowerCase();
     const url = `${CHARTS_URL}/${country}/podcasts/top/${limit}/podcasts.json`;
-    const resp = await fetch(url);
+    let resp: Response;
+    try {
+      resp = await fetch(url);
+    } catch (error: any) {
+      const reason = error?.cause?.code ?? error?.message ?? 'unknown network error';
+      throw new CliError(
+        'FETCH_ERROR',
+        `Unable to reach Apple Podcasts charts for ${country.toUpperCase()}`,
+        `Apple charts may be temporarily unavailable (${reason}). Try again later.`,
+      );
+    }
     if (!resp.ok) throw new CliError('FETCH_ERROR', `Charts API HTTP ${resp.status}`, `Check country code: ${country}`);
     const data = await resp.json();
     const results = data?.feed?.results;

@@ -14,7 +14,7 @@ cli({
   ],
   columns: ['id', 'title', 'author', 'episodes', 'genre'],
   func: async (_page, args) => {
-    const term = encodeURIComponent(args.keyword);
+    const term = encodeURIComponent(args.query);
     const limit = Math.max(1, Math.min(Number(args.limit), 25));
     const data = await itunesFetch(`/search?term=${term}&media=podcast&limit=${limit}`);
     if (!data.results?.length) throw new CliError('NOT_FOUND', 'No podcasts found', `Try a different keyword`);
