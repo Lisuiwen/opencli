@@ -206,11 +206,18 @@ To load the source Browser Bridge extension:
 | **gitee** | `trending` `search` `user` |
 | **gemini** | `new` `ask` `image` `deep-research` `deep-research-result` |
 | **yuanbao** | `new` `ask` |
+| **rdm** | `workload` `worklist` `issue-detail` |
 | **notebooklm** | `status` `list` `open` `current` `get` `history` `summary` `note-list` `notes-get` `source-list` `source-get` `source-fulltext` `source-guide` |
 | **spotify** | `auth` `status` `play` `pause` `next` `prev` `volume` `search` `queue` `shuffle` `repeat` |
 | **xianyu** | `search` `item` `chat` |
 | **xiaoe** | `courses` `detail` `catalog` `play-url` `content` |
 | **quark** | `ls` `mkdir` `mv` `rename` `rm` `save` `share-tree` |
+
+```bash
+opencli rdm issue-detail RDM-12345
+opencli rdm worklist --status 处理中 --summary 关键字
+opencli rdm workload --from 2026-04-01 --to 2026-04-13
+```
 
 87+ adapters in total — **[→ see all supported sites & commands](./docs/adapters/index.md)**
 

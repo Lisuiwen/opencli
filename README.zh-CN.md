@@ -361,6 +361,10 @@ opencli zhihu download "https://zhuanlan.zhihu.com/p/xxx" --download-images
 
 # 导出微信公众号文章为 Markdown
 opencli weixin download --url "https://mp.weixin.qq.com/s/xxx" --output ./weixin
+
+opencli rdm issue-detail RDM-12345
+opencli rdm worklist --status 处理中 --summary 关键字
+opencli rdm workload --from 2026-04-01 --to 2026-04-13
 ```
 
 
