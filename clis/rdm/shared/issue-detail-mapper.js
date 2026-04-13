@@ -62,41 +62,42 @@ export function joinNames(items) {
 }
 
 export function buildIssueDetailResult(input) {
-  const issue = Array.isArray(input.detail?.issues) ? (input.detail.issues[0] ?? {}) : {};
+  // 主详情接口直接返回平铺对象，不是 { issues: [...] } 包装。
+  const issue = input.detail ?? {};
 
   return {
     projectId: input.projectId,
     projectName: input.projectName,
-    issueId: String(issue.id ?? ''),
+    issueId: String(issue.issueId ?? ''),
     issueNum: String(issue.issueNum ?? ''),
     summary: String(issue.summary ?? ''),
     typeCode: String(issue.typeCode ?? ''),
-    status: String(issue.statusName ?? ''),
+    status: String(issue.statusMapVO?.name ?? ''),
     reporterName: String(issue.reporterName ?? ''),
     assigneeName: String(issue.assigneeName ?? ''),
-    versions: joinNames(issue.versions),
-    labels: joinNames(issue.labels),
-    components: joinNames(issue.components),
+    versions: joinNames(issue.versionIssueRelVOList),
+    labels: joinNames(issue.labelIssueRelVOList),
+    components: joinNames(issue.componentIssueRelVOList),
     comments: formatCommentLines(
       (Array.isArray(input.comments) ? input.comments : []).map((item) => ({
-        createdAt: String(item.createdAt ?? ''),
-        authorName: String(item.authorName ?? ''),
-        content: String(item.content ?? ''),
-        replyToName: item.replyToName ? String(item.replyToName) : undefined,
+        createdAt: String(item.lastUpdateDate ?? ''),
+        authorName: String(item.userName ?? ''),
+        content: String(item.commentText ?? ''),
+        replyToName: item.replyToUserName ? String(item.replyToUserName) : undefined,
       })),
     ),
     workLogs: formatWorkLogLines(
       (Array.isArray(input.workLogs) ? input.workLogs : []).map((item) => ({
-        createdAt: String(item.createdAt ?? ''),
-        authorName: String(item.authorName ?? ''),
-        durationText: formatDurationToText(item.duration ?? item.durationHours ?? item.timeSpent),
+        createdAt: String(item.startDate ?? ''),
+        authorName: String(item.userName ?? ''),
+        durationText: formatDurationToText(item.workTime),
       })),
     ),
     dataLogs: formatDataLogLines(
       (Array.isArray(input.dataLogs) ? input.dataLogs : []).map((item) => ({
-        createdAt: String(item.createdAt ?? ''),
-        authorName: String(item.authorName ?? ''),
-        fieldName: String(item.fieldName ?? ''),
+        createdAt: String(item.lastUpdateDate ?? ''),
+        authorName: String(item.name ?? ''),
+        fieldName: String(item.field ?? ''),
         oldText: String(item.oldString ?? item.oldValue ?? ''),
         newText: String(item.newString ?? item.newValue ?? ''),
       })),

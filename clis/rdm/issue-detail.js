@@ -2,7 +2,7 @@ import { cli, Strategy } from '@jackwener/opencli/registry';
 import { fetchProjectsPage } from './shared/common-api.js';
 import { buildRdmError } from './shared/errors.js';
 import { buildIssueDetailResult } from './shared/issue-detail-mapper.js';
-import { fetchIssueComments, fetchIssueDataLogs, fetchIssueDetail, fetchIssueWorkLogs } from './shared/issue-detail-api.js';
+import { extractProjectCode, fetchIssueComments, fetchIssueDataLogs, fetchIssueDetail, fetchIssueIdByNum, fetchIssueWorkLogs } from './shared/issue-detail-api.js';
 import { acquireRdmSession } from './shared/session.js';
 
 function parseTrimmedString(value, fieldName) {
@@ -12,19 +12,47 @@ function parseTrimmedString(value, fieldName) {
   return trimmedValue;
 }
 
+function isSnowflakeId(value) {
+  return /^\d{15,19}$/.test(value);
+}
+
 function buildIssueDetailQuery(kwargs) {
-  const issueId = parseTrimmedString(kwargs['issue-id'], 'issue-id');
+  const rawId = parseTrimmedString(kwargs['issue-id'], 'issue-id');
   const organizationIdValue = kwargs['organization-id'];
   const organizationId = organizationIdValue === undefined ? 4 : Number(organizationIdValue);
   if (!Number.isInteger(organizationId) || organizationId <= 0) {
     throw new Error('参数错误：organization-id 必须为正整数。');
   }
 
-  const query = { issueId, projectId: undefined, organizationId };
+  const query = { rawId, isIssueNum: !isSnowflakeId(rawId), projectId: undefined, organizationId };
   if (kwargs['project-id'] !== undefined && kwargs['project-id'] !== null) {
     query.projectId = parseTrimmedString(kwargs['project-id'], 'project-id');
   }
   return query;
+}
+
+/**
+ * 将输入 ID（issueNum 或 Snowflake issueId）统一解析成可用于 detail 接口的 issueId。
+ * 当输入为 issueNum 时，同时返回已定位到的 projectId / projectName。
+ */
+async function resolveIssueId(context, query) {
+  if (!query.isIssueNum) return { issueId: query.rawId };
+
+  const issueNum = query.rawId;
+  const projectCode = extractProjectCode(issueNum);
+  if (!projectCode) throw new Error(`参数错误：无法从工单编号 "${issueNum}" 中解析项目编码。`);
+
+  const allProjects = await fetchAllProjects(context);
+  const matched = allProjects.find((p) => p.code === projectCode);
+  if (!matched) {
+    throw new Error(`未找到项目编码为 "${projectCode}" 的项目（从工单编号 "${issueNum}" 解析）。`);
+  }
+
+  const result = await fetchIssueIdByNum(context, matched.id, issueNum);
+  if (!result.ok) throw buildRdmError('LIST_FETCH_FAILED', `（按工单编号查询 HTTP ${result.status ?? 'unknown'}）`);
+  if (!result.issueId) throw new Error(`项目 "${matched.name}" 中未找到工单编号 "${issueNum}"。`);
+
+  return { issueId: result.issueId, projectId: matched.id, projectName: matched.name };
 }
 
 function normalizeListPayload(data) {
@@ -93,17 +121,23 @@ async function findIssueProject(context, issueId) {
 
 async function executeIssueDetail(page, query) {
   const context = await acquireRdmSession(page, query.organizationId);
+  const resolved = await resolveIssueId(context, query);
+  const issueId = resolved.issueId;
 
-  if (query.projectId) {
-    const result = await fetchIssueBundle(context, query.projectId, query.projectId, query.issueId);
+  // 优先使用已解析到的 projectId（issueNum 路径），其次使用用户显式传入的 projectId。
+  const knownProjectId = resolved.projectId ?? query.projectId;
+  const knownProjectName = resolved.projectName ?? knownProjectId;
+
+  if (knownProjectId) {
+    const result = await fetchIssueBundle(context, knownProjectId, knownProjectName, issueId);
     return [result];
   }
 
-  const matched = await findIssueProject(context, query.issueId);
+  const matched = await findIssueProject(context, issueId);
   const [commentsResult, workLogsResult, dataLogsResult] = await Promise.all([
-    fetchIssueComments(context, matched.projectId, query.issueId),
-    fetchIssueWorkLogs(context, matched.projectId, query.issueId),
-    fetchIssueDataLogs(context, matched.projectId, query.issueId),
+    fetchIssueComments(context, matched.projectId, issueId),
+    fetchIssueWorkLogs(context, matched.projectId, issueId),
+    fetchIssueDataLogs(context, matched.projectId, issueId),
   ]);
 
   if (!commentsResult.ok) throw buildRdmError('DETAIL_FETCH_FAILED', `（评论 HTTP ${commentsResult.status ?? 'unknown'}）`);
@@ -129,7 +163,7 @@ cli({
   browser: true,
   timeoutSeconds: 180,
   args: [
-    { name: 'issue-id', positional: true, required: true, help: '工单 ID' },
+    { name: 'issue-id', positional: true, required: true, help: '工单内部 ID（如 697813958349832192）或工单编号（如 cymh-chn-123）' },
     { name: 'project-id', required: false, help: '项目 ID，可选' },
     { name: 'organization-id', type: 'int', default: 4, help: '组织 ID，默认 4' },
   ],
@@ -140,4 +174,4 @@ cli({
   },
 });
 
-export const __test__ = { buildIssueDetailQuery, buildIssueDetailResult, executeIssueDetail, normalizeListPayload };
+export const __test__ = { buildIssueDetailQuery, buildIssueDetailResult, executeIssueDetail, normalizeListPayload, isSnowflakeId, resolveIssueId };

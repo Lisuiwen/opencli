@@ -11516,7 +11516,7 @@
         "type": "str",
         "required": true,
         "positional": true,
-        "help": "工单 ID"
+        "help": "工单内部 ID（如 697813958349832192）或工单编号（如 cymh-chn-123）"
       },
       {
         "name": "project-id",
